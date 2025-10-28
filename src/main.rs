@@ -73,6 +73,11 @@ async fn sensor_reading(
 ) -> Result<Json<ReadingResponse>, (StatusCode, String)> {
     println!("{:?}", payload);
     // TODO Store sensor reading to database
+
+    if payload.co2 < 0.0 {
+        return Err((StatusCode::BAD_REQUEST, "Invalid CO2 value".into()));
+    }
+
     Ok(Json(ReadingResponse {
         status: true,
         error_msg: "".to_string(),
