@@ -26,7 +26,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/db_health", get(db_health_check))
+        .route("/health", get(db_health_check))
         .route("/reading", post(sensor_reading))
         .with_state(pool);
 
@@ -46,8 +46,8 @@ async fn root() -> &'static str {
 
 async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
     match health_check(&pool).await {
-        Ok(_) => "DB is up and running",
-        Err(_) => "DB is down",
+        Ok(_) => "Database is up and running",
+        Err(_) => "Database is down",
     }
 }
 
