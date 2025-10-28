@@ -8,7 +8,7 @@ use dotenv;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
-use db::{SensorReading, insert_reading};
+use db::{SensorReading, health_check, insert_reading};
 use http::ReadingResponse;
 
 #[tokio::main]
@@ -26,7 +26,6 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/health", get(health_check))
         .route("/db_health", get(db_health_check))
         .route("/reading", post(sensor_reading))
         .with_state(pool);
@@ -45,14 +44,10 @@ async fn root() -> &'static str {
     "Welcome to the Pollution Tracker API"
 }
 
-async fn health_check() -> &'static str {
-    "OK"
-}
-
 async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
-    match sqlx::query("SELECT 1").fetch_one(&pool).await {
-        Ok(_) => "OK",
-        Err(_) => "FAILED",
+    match health_check(&pool).await {
+        Ok(_) => "DB is up and running",
+        Err(_) => "DB is down",
     }
 }
 

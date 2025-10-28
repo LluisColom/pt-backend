@@ -2,6 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+pub async fn health_check(pool: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query("SELECT 1").fetch_one(pool).await.map(|_| ())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SensorReading {
     id: i32,
