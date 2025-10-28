@@ -35,5 +35,7 @@ pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(),
     )
     .execute(pool)
     .await?;
+
+    println!("Inserted reading: {:?}", payload);
     Ok(())
 }
