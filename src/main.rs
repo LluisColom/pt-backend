@@ -1,7 +1,25 @@
 use axum::extract::State;
-use axum::{Router, routing::get};
+use axum::routing::post;
+use axum::{Json, Router, routing::get};
+use chrono::{DateTime, Utc};
+use dotenv;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SensorReading {
+    id: String,
+    timestamp: DateTime<Utc>, // ISO 8601 format
+    co2: f32,
+    temperature: f32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ReadingResponse {
+    status: bool,
+    error_msg: String,
+}
 
 #[tokio::main]
 async fn main() {
@@ -20,6 +38,7 @@ async fn main() {
         .route("/", get(root))
         .route("/health", get(health_check))
         .route("/db_health", get(db_health_check))
+        .route("/reading", post(sensor_reading))
         .with_state(pool);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -45,4 +64,16 @@ async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
         Ok(_) => "OK",
         Err(_) => "FAILED",
     }
+}
+
+async fn sensor_reading(
+    State(pool): State<PgPool>,
+    Json(payload): Json<SensorReading>,
+) -> Json<ReadingResponse> {
+    println!("{:?}", payload);
+    // TODO Store sensor reading to database
+    Json(ReadingResponse {
+        status: true,
+        error_msg: "".to_string(),
+    })
 }
