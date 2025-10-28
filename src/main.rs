@@ -10,7 +10,8 @@ use sqlx::postgres::PgPoolOptions;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SensorReading {
-    id: String,
+    id: i32,
+    sensor_id: i32,
     timestamp: DateTime<Utc>, // ISO 8601 format
     co2: f32,
     temperature: f32,
@@ -20,6 +21,15 @@ struct SensorReading {
 struct ReadingResponse {
     status: bool,
     error_msg: String,
+}
+
+impl ReadingResponse {
+    fn success() -> Self {
+        ReadingResponse {
+            status: true,
+            error_msg: "".to_string(),
+        }
+    }
 }
 
 #[tokio::main]
@@ -71,15 +81,22 @@ async fn sensor_reading(
     State(pool): State<PgPool>,
     Json(payload): Json<SensorReading>,
 ) -> Result<Json<ReadingResponse>, (StatusCode, String)> {
-    println!("{:?}", payload);
-    // TODO Store sensor reading to database
-
     if payload.co2 < 0.0 {
         return Err((StatusCode::BAD_REQUEST, "Invalid CO2 value".into()));
     }
 
-    Ok(Json(ReadingResponse {
-        status: true,
-        error_msg: "".to_string(),
-    }))
+    sqlx::query!(
+        r#"
+        INSERT INTO readings (sensor_id, timestamp, co2_level)
+        VALUES ($1, $2, $3)
+        "#,
+        payload.sensor_id,
+        payload.timestamp,
+        payload.co2
+    )
+    .execute(&pool)
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error".into()))?;
+
+    Ok(Json(ReadingResponse::success()))
 }
