@@ -1,4 +1,5 @@
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
 use chrono::{DateTime, Utc};
@@ -69,11 +70,11 @@ async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
 async fn sensor_reading(
     State(pool): State<PgPool>,
     Json(payload): Json<SensorReading>,
-) -> Json<ReadingResponse> {
+) -> Result<Json<ReadingResponse>, (StatusCode, String)> {
     println!("{:?}", payload);
     // TODO Store sensor reading to database
-    Json(ReadingResponse {
+    Ok(Json(ReadingResponse {
         status: true,
         error_msg: "".to_string(),
-    })
+    }))
 }
