@@ -1,5 +1,4 @@
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
 use chrono::{DateTime, Utc};
@@ -19,15 +18,29 @@ struct SensorReading {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ReadingResponse {
-    status: bool,
+    status: u16,
     error_msg: String,
 }
 
 impl ReadingResponse {
     fn success() -> Self {
         ReadingResponse {
-            status: true,
+            status: 200,
             error_msg: "".to_string(),
+        }
+    }
+
+    fn bad_request(msg: impl AsRef<str>) -> Self {
+        ReadingResponse {
+            status: 400,
+            error_msg: msg.as_ref().to_string(),
+        }
+    }
+
+    fn internal_error() -> Self {
+        ReadingResponse {
+            status: 500,
+            error_msg: "Internal server error".to_string(),
         }
     }
 }
@@ -80,12 +93,12 @@ async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
 async fn sensor_reading(
     State(pool): State<PgPool>,
     Json(payload): Json<SensorReading>,
-) -> Result<Json<ReadingResponse>, (StatusCode, String)> {
+) -> Json<ReadingResponse> {
     if payload.co2 < 0.0 {
-        return Err((StatusCode::BAD_REQUEST, "Invalid CO2 value".into()));
+        return Json(ReadingResponse::bad_request("Invalid CO2 value"));
     }
 
-    sqlx::query!(
+    if let Err(e) = sqlx::query!(
         r#"
         INSERT INTO readings (sensor_id, timestamp, co2_level)
         VALUES ($1, $2, $3)
@@ -96,7 +109,10 @@ async fn sensor_reading(
     )
     .execute(&pool)
     .await
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error".into()))?;
+    {
+        println!("Error inserting reading: {}", e);
+        return Json(ReadingResponse::internal_error());
+    }
 
-    Ok(Json(ReadingResponse::success()))
+    Json(ReadingResponse::success())
 }
