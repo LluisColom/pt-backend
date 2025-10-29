@@ -1,14 +1,14 @@
 mod db;
 mod http;
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
 use dotenv;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
-use db::{SensorReading, health_check, insert_reading};
+use db::{SensorReading, SensorReadingRecord, fetch_readings, health_check, insert_reading};
 use http::ReadingResponse;
 
 #[tokio::main]
@@ -27,7 +27,8 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(db_health_check))
-        .route("/reading", post(sensor_reading))
+        .route("/sensors/ingest", post(ingest_reading))
+        .route("/sensors/{sensor_id}/readings", get(fetch_reading))
         .with_state(pool);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -51,7 +52,7 @@ async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
     }
 }
 
-async fn sensor_reading(
+async fn ingest_reading(
     State(pool): State<PgPool>,
     Json(payload): Json<SensorReading>,
 ) -> Json<ReadingResponse> {
@@ -65,4 +66,17 @@ async fn sensor_reading(
     }
 
     Json(ReadingResponse::success())
+}
+
+async fn fetch_reading(
+    State(pool): State<PgPool>,
+    sensor_id: Path<i32>,
+) -> Json<Vec<SensorReadingRecord>> {
+    match fetch_readings(&pool, *sensor_id).await {
+        Ok(readings) => Json(readings),
+        Err(e) => {
+            println!("Error fetching readings: {}", e);
+            Json(vec![])
+        }
+    }
 }
