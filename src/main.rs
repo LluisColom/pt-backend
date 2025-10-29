@@ -7,6 +7,7 @@ use axum::{Json, Router, routing::get};
 use dotenv;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use tower_http::cors::{Any, CorsLayer};
 
 use db::{SensorReading, SensorReadingRecord, fetch_readings, health_check, insert_reading};
 use http::ReadingResponse;
@@ -24,11 +25,18 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
 
+    // Allow requests from any origin (development-purposes only)
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(db_health_check))
         .route("/sensors/ingest", post(ingest_reading))
         .route("/sensors/{sensor_id}/readings", get(fetch_reading))
+        .layer(cors)
         .with_state(pool);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")

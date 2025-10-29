@@ -62,7 +62,7 @@ pub async fn fetch_readings(
         SELECT id, sensor_id, timestamp, co2_level as co2, temperature
         FROM readings
         WHERE sensor_id = $1
-        ORDER BY timestamp DESC
+        ORDER BY timestamp ASC
         "#,
     )
     .bind(sensor_id)
