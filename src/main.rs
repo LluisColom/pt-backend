@@ -4,7 +4,6 @@ mod http;
 use axum::extract::{Path, Query, State};
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
-use dotenv;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
