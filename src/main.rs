@@ -1,7 +1,7 @@
 mod db;
 mod http;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
 use dotenv;
@@ -10,7 +10,7 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
 use db::{SensorReading, SensorReadingRecord, fetch_readings, health_check, insert_reading};
-use http::ReadingResponse;
+use http::{ReadingResponse, TimeRangeQuery};
 
 #[tokio::main]
 async fn main() {
@@ -77,10 +77,11 @@ async fn ingest_reading(
 }
 
 async fn fetch_reading(
-    State(pool): State<PgPool>,
     sensor_id: Path<i32>,
+    Query(range): Query<TimeRangeQuery>,
+    State(pool): State<PgPool>,
 ) -> Json<Vec<SensorReadingRecord>> {
-    match fetch_readings(&pool, *sensor_id).await {
+    match fetch_readings(&pool, *sensor_id, range).await {
         Ok(readings) => Json(readings),
         Err(e) => {
             println!("Error fetching readings: {}", e);

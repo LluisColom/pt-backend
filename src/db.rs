@@ -1,3 +1,4 @@
+use crate::http::TimeRangeQuery;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
@@ -56,16 +57,22 @@ pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(),
 pub async fn fetch_readings(
     pool: &PgPool,
     sensor_id: i32,
+    time_query: TimeRangeQuery,
 ) -> Result<Vec<SensorReadingRecord>, sqlx::Error> {
+    // Extract DateTime from query
+    let timestamp = time_query.to_cutoff_time();
+    // Read from DB
     let readings = sqlx::query_as::<_, SensorReadingRecord>(
         r#"
         SELECT id, sensor_id, timestamp, co2_level as co2, temperature
         FROM readings
         WHERE sensor_id = $1
+        AND timestamp >= $2
         ORDER BY timestamp ASC
         "#,
     )
     .bind(sensor_id)
+    .bind(timestamp)
     .fetch_all(pool)
     .await?;
 
