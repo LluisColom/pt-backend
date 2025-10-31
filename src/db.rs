@@ -1,3 +1,4 @@
+use crate::crypto::{calculate_hash, verify_hash};
 use crate::http::TimeRangeQuery;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,15 @@ pub struct SensorReadingRecord {
     co2: f32,
     temperature: f32,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct UserForm {
+    username: String,
+    password: String,
+}
+
+#[derive(Debug, FromRow)]
+struct UserRecord(String); // Tuple struct
 
 pub fn validate_reading(payload: &SensorReading) -> Result<(), &'static str> {
     if payload.co2 < 0.0 {
@@ -77,4 +87,39 @@ pub async fn fetch_readings(
     .await?;
 
     Ok(readings)
+}
+
+pub async fn register_user(pool: &PgPool, user_form: UserForm) -> Result<(), sqlx::Error> {
+    // Calculate Argon2 password hash
+    let hash = calculate_hash(user_form.password.as_str());
+    // Insert into DB
+    sqlx::query!(
+        r#"
+        INSERT INTO users (username, password)
+        VALUES ($1, $2)
+        "#,
+        user_form.username,
+        hash
+    )
+    .execute(pool)
+    .await?;
+
+    println!("New user created: {}", user_form.username);
+    Ok(())
+}
+
+pub async fn user_login(pool: &PgPool, user_form: UserForm) -> Result<bool, sqlx::Error> {
+    // Read stored hash from DB
+    let stored_hash = sqlx::query_as::<_, UserRecord>(
+        r#"
+        SELECT password_hash
+        FROM users
+        WHERE username = $1
+        "#,
+    )
+    .bind(&user_form.username)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(stored_hash.map_or(false, |r| verify_hash(&user_form.password, &r.0)))
 }

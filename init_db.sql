@@ -17,6 +17,14 @@ CREATE TABLE readings (
     temperature REAL NOT NULL
 );
 
+CREATE TABLE users (
+   id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+   username TEXT UNIQUE NOT NULL,
+   password TEXT NOT NULL,
+   role TEXT DEFAULT 'user',
+   created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX idx_sensor_readings_timestamp ON readings(sensor_id, timestamp);
 
 INSERT INTO sensors (sensor_name, sensor_location) VALUES ('Petroquimica Repsol', 'Tarragona');
