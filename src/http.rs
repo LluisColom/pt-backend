@@ -1,4 +1,6 @@
+use super::db::UserForm;
 use chrono::{DateTime, Duration, Utc};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -41,30 +43,100 @@ enum TimeRange {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ReadingResponse {
+pub struct HttpResponse<T>
+where
+    T: Serialize,
+{
     status: u16,
-    error_msg: String,
+    error_msg: Option<String>,
+    body: Option<T>, // For success payloads
 }
 
-impl ReadingResponse {
+impl<T: Serialize> HttpResponse<T> {
     pub fn success() -> Self {
-        ReadingResponse {
+        HttpResponse {
             status: 200,
-            error_msg: "".to_string(),
+            error_msg: None,
+            body: None,
+        }
+    }
+
+    pub fn success_data(data: T) -> Self {
+        HttpResponse {
+            status: 200,
+            error_msg: None,
+            body: Some(data),
         }
     }
 
     pub fn bad_request(msg: impl AsRef<str>) -> Self {
-        ReadingResponse {
+        HttpResponse {
             status: 400,
-            error_msg: msg.as_ref().to_string(),
+            error_msg: Some(msg.as_ref().to_string()),
+            body: None,
+        }
+    }
+
+    pub fn unauthorized(msg: impl AsRef<str>) -> Self {
+        HttpResponse {
+            status: 401,
+            error_msg: Some(msg.as_ref().to_string()),
+            body: None,
         }
     }
 
     pub fn internal_error() -> Self {
-        ReadingResponse {
+        HttpResponse {
             status: 500,
-            error_msg: "Internal server error".to_string(),
+            error_msg: Some("Internal server error".to_string()),
+            body: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: i64,
+    pub role: String,
+}
+
+pub fn create_token(user_form: &UserForm) -> String {
+    let expiration = Utc::now() + Duration::hours(1);
+
+    let claims = Claims {
+        sub: user_form.username.clone(),
+        exp: expiration.timestamp(),
+        role: "user".to_string(),
+    };
+
+    // Load secret key from environment variable
+    let secret_key = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+
+    // Generate JWT token
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret_key.as_ref()),
+    )
+    .expect("JWT encoding failed");
+
+    token
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub username: String,
+    pub role: String,
+}
+
+impl LoginResponse {
+    pub fn new(token: String, user_form: &UserForm) -> Self {
+        LoginResponse {
+            token,
+            username: user_form.username.clone(),
+            role: "user".to_string(),
         }
     }
 }
