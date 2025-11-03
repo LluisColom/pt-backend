@@ -10,9 +10,8 @@ use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::http::LoginResponse;
 use db::{SensorReading, SensorReadingRecord, UserForm};
-use http::{HttpResponse, TimeRangeQuery, create_token};
+use http::{HttpResponse, LoginResponse, TimeRangeQuery};
 
 #[tokio::main]
 async fn main() {
@@ -109,7 +108,7 @@ async fn user_login(State(pool): State<PgPool>, Json(form): Json<UserForm>) -> i
     match db::user_login(&pool, &form).await {
         Ok(valid) => {
             if valid {
-                let token = create_token(&form);
+                let token = http::create_token(&form);
                 let resp = LoginResponse::new(token, &form);
                 Json(HttpResponse::success_data(resp)).into_response()
             } else {
