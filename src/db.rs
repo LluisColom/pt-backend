@@ -1,5 +1,5 @@
-use crate::crypto::{calculate_hash, verify_hash};
-use crate::http::TimeRangeQuery;
+use super::crypto::{calculate_hash, verify_hash};
+use super::http::TimeRangeQuery;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
@@ -31,8 +31,8 @@ pub struct SensorReadingRecord {
 
 #[derive(Debug, Deserialize)]
 pub struct UserForm {
-    username: String,
-    password: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Debug, FromRow)]
@@ -108,7 +108,7 @@ pub async fn register_user(pool: &PgPool, user_form: UserForm) -> Result<(), sql
     Ok(())
 }
 
-pub async fn user_login(pool: &PgPool, user_form: UserForm) -> Result<bool, sqlx::Error> {
+pub async fn user_login(pool: &PgPool, user_form: &UserForm) -> Result<bool, sqlx::Error> {
     // Read stored hash from DB
     let stored_hash = sqlx::query_as::<_, UserRecord>(
         r#"
