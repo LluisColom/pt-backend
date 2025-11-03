@@ -3,14 +3,16 @@ mod db;
 mod http;
 
 use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router, routing::get};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
+use crate::http::LoginResponse;
 use db::{SensorReading, SensorReadingRecord, UserForm};
-use http::{ReadingResponse, TimeRangeQuery};
+use http::{HttpResponse, TimeRangeQuery, create_token};
 
 #[tokio::main]
 async fn main() {
@@ -65,17 +67,17 @@ async fn db_health_check(State(pool): State<PgPool>) -> &'static str {
 async fn ingest_reading(
     State(pool): State<PgPool>,
     Json(payload): Json<SensorReading>,
-) -> Json<ReadingResponse> {
+) -> impl IntoResponse {
     if let Err(reason) = db::validate_reading(&payload) {
-        return Json(ReadingResponse::bad_request(reason));
+        return Json(HttpResponse::<()>::bad_request(reason)).into_response();
     }
 
     if let Err(e) = db::insert_reading(&pool, payload).await {
         println!("Error inserting reading: {}", e);
-        return Json(ReadingResponse::internal_error());
+        return Json(HttpResponse::<()>::internal_error()).into_response();
     }
 
-    Json(ReadingResponse::success())
+    Json(HttpResponse::<()>::success()).into_response()
 }
 
 async fn fetch_reading(
@@ -95,22 +97,27 @@ async fn fetch_reading(
 async fn user_registry(
     State(pool): State<PgPool>,
     Json(form): Json<UserForm>,
-) -> Json<ReadingResponse> {
+) -> impl IntoResponse {
     if let Err(e) = db::register_user(&pool, form).await {
         println!("Error in user registry: {}", e);
     }
-    Json(ReadingResponse::success())
+    Json(HttpResponse::<()>::success())
 }
 
-async fn user_login(
-    State(pool): State<PgPool>,
-    Json(form): Json<UserForm>,
-) -> Json<ReadingResponse> {
-    match db::user_login(&pool, form).await {
-        Ok(valid) => {}
+async fn user_login(State(pool): State<PgPool>, Json(form): Json<UserForm>) -> impl IntoResponse {
+    match db::user_login(&pool, &form).await {
+        Ok(valid) => {
+            if valid {
+                let token = create_token(&form);
+                let resp = LoginResponse::new(token, &form);
+                Json(HttpResponse::success_data(resp)).into_response()
+            } else {
+                Json(HttpResponse::<()>::unauthorized("Invalid credentials")).into_response()
+            }
+        }
         Err(e) => {
             println!("Error in user login: {}", e);
+            Json(HttpResponse::<()>::internal_error()).into_response()
         }
     }
-    Json(ReadingResponse::success())
 }
