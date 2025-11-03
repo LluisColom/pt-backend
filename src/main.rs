@@ -18,9 +18,10 @@ use http::{HttpResponse, TimeRangeQuery, create_token};
 async fn main() {
     // Load environment variables
     dotenv::dotenv().ok();
+    let db = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let _ = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
     // Connect to database
-    let db = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&db)
