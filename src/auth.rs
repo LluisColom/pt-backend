@@ -1,4 +1,3 @@
-use super::db::UserForm;
 use axum::{
     extract::Request,
     http::{HeaderMap, StatusCode},
@@ -16,11 +15,11 @@ pub struct Claims {
     pub role: String,
 }
 
-pub fn create_jwt(user_form: &UserForm) -> String {
+pub fn create_jwt(username: impl AsRef<str>) -> String {
     let expiration = Utc::now() + Duration::hours(1);
     // Create claims object
     let claims = Claims {
-        sub: user_form.username.clone(),
+        sub: username.as_ref().to_string(),
         exp: expiration.timestamp(),
         role: "user".to_string(),
     };
