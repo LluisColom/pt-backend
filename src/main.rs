@@ -123,18 +123,29 @@ async fn user_registry(
     State(pool): State<PgPool>,
     Json(form): Json<UserForm>,
 ) -> impl IntoResponse {
-    if let Err(e) = db::register_user(&pool, form).await {
-        println!("Error in user registry: {}", e);
-        return Json(HttpResponse::<()>::internal_error()).into_response();
+    match db::register_user(&pool, form).await {
+        Ok(_) => Json(HttpResponse::<()>::success()).into_response(),
+        Err(sqlx::Error::Database(e)) => {
+            // PostgreSQL unique violation code
+            if e.code() == Some(std::borrow::Cow::from("23505")) {
+                Json(HttpResponse::<()>::conflicts("Username already taken")).into_response()
+            } else {
+                println!("Error in user registry: {}", e);
+                Json(HttpResponse::<()>::internal_error()).into_response()
+            }
+        }
+        Err(e) => {
+            println!("Error in user registry: {}", e);
+            Json(HttpResponse::<()>::internal_error()).into_response()
+        }
     }
-    Json(HttpResponse::<()>::success()).into_response()
 }
 
 async fn user_login(State(pool): State<PgPool>, Json(form): Json<UserForm>) -> impl IntoResponse {
     match db::user_login(&pool, &form).await {
         Ok(valid) => {
             if valid {
-                let token = auth::create_jwt(&form);
+                let token = auth::create_jwt(&form.username);
                 let resp = LoginResponse::new(token, &form);
                 Json(HttpResponse::success_data(resp)).into_response()
             } else {
