@@ -1,6 +1,5 @@
 use super::db::UserForm;
 use chrono::{DateTime, Duration, Utc};
-use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -85,6 +84,14 @@ impl<T: Serialize> HttpResponse<T> {
         }
     }
 
+    pub fn forbidden(msg: impl AsRef<str>) -> Self {
+        HttpResponse {
+            status: 403,
+            error_msg: Some(msg.as_ref().to_string()),
+            body: None,
+        }
+    }
+
     pub fn internal_error() -> Self {
         HttpResponse {
             status: 500,
@@ -92,36 +99,6 @@ impl<T: Serialize> HttpResponse<T> {
             body: None,
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,
-    pub exp: i64,
-    pub role: String,
-}
-
-pub fn create_token(user_form: &UserForm) -> String {
-    let expiration = Utc::now() + Duration::hours(1);
-
-    let claims = Claims {
-        sub: user_form.username.clone(),
-        exp: expiration.timestamp(),
-        role: "user".to_string(),
-    };
-
-    // Load secret key from environment variable
-    let secret_key = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-
-    // Generate JWT token
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret_key.as_ref()),
-    )
-    .expect("JWT encoding failed");
-
-    token
 }
 
 #[derive(Debug, Serialize)]
