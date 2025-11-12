@@ -1,3 +1,4 @@
+mod auth;
 mod crypto;
 mod db;
 mod http;
@@ -5,12 +6,13 @@ mod http;
 use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
 use axum::routing::post;
-use axum::{Json, Router, routing::get};
+use axum::{Extension, Json, Router, middleware, routing::get};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
-use db::{SensorReading, SensorReadingRecord, UserForm};
+use auth::Claims;
+use db::{SensorReading, UserForm};
 use http::{HttpResponse, LoginResponse, TimeRangeQuery};
 
 #[tokio::main]
@@ -36,10 +38,11 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(db_health_check))
-        .route("/sensors/ingest", post(ingest_reading))
-        .route("/sensors/{sensor_id}/readings", get(fetch_reading))
         .route("/users/register", post(user_registry))
         .route("/users/login", post(user_login))
+        .route("/sensors/ingest", post(ingest_reading))
+        // Merge protected routes as a separate router
+        .merge(protected_routes())
         .layer(cors)
         .with_state(pool);
 
@@ -51,6 +54,13 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .expect("Failed to start server");
+}
+
+// Define routes that require authentication
+fn protected_routes() -> Router<PgPool> {
+    Router::new()
+        .route("/sensors/{sensor_id}/readings", get(fetch_reading))
+        .layer(middleware::from_fn(auth::verify_jwt))
 }
 
 async fn root() -> &'static str {
@@ -84,12 +94,27 @@ async fn fetch_reading(
     sensor_id: Path<i32>,
     Query(range): Query<TimeRangeQuery>,
     State(pool): State<PgPool>,
-) -> Json<Vec<SensorReadingRecord>> {
-    match db::fetch_readings(&pool, *sensor_id, range).await {
-        Ok(readings) => Json(readings),
+    Extension(claims): Extension<Claims>,
+) -> impl IntoResponse {
+    // Access control: check if user owns the sensor
+    match db::owns_sensor(&pool, claims.sub.clone(), *sensor_id).await {
+        Ok(ownership) => {
+            if ownership == false {
+                let msg = "Not authorized to access this sensor";
+                return Json(HttpResponse::<()>::forbidden(msg)).into_response();
+            }
+        }
+        Err(e) => {
+            println!("Database error checking ownership: {}", e);
+            return Json(HttpResponse::<()>::internal_error()).into_response();
+        }
+    }
+
+    match db::fetch_readings(&pool, *sensor_id, range, claims.sub).await {
+        Ok(readings) => Json(HttpResponse::<_>::success_data(readings)).into_response(),
         Err(e) => {
             println!("Error fetching readings: {}", e);
-            Json(vec![])
+            Json(HttpResponse::<()>::internal_error()).into_response()
         }
     }
 }
@@ -100,15 +125,16 @@ async fn user_registry(
 ) -> impl IntoResponse {
     if let Err(e) = db::register_user(&pool, form).await {
         println!("Error in user registry: {}", e);
+        return Json(HttpResponse::<()>::internal_error()).into_response();
     }
-    Json(HttpResponse::<()>::success())
+    Json(HttpResponse::<()>::success()).into_response()
 }
 
 async fn user_login(State(pool): State<PgPool>, Json(form): Json<UserForm>) -> impl IntoResponse {
     match db::user_login(&pool, &form).await {
         Ok(valid) => {
             if valid {
-                let token = http::create_token(&form);
+                let token = auth::create_jwt(&form);
                 let resp = LoginResponse::new(token, &form);
                 Json(HttpResponse::success_data(resp)).into_response()
             } else {
