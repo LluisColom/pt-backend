@@ -68,20 +68,30 @@ pub async fn fetch_readings(
     pool: &PgPool,
     sensor_id: i32,
     time_query: TimeRangeQuery,
+    username: String,
 ) -> Result<Vec<SensorReadingRecord>, sqlx::Error> {
     // Extract DateTime from query
     let timestamp = time_query.to_cutoff_time();
     // Read from DB
     let readings = sqlx::query_as::<_, SensorReadingRecord>(
         r#"
-        SELECT id, sensor_id, timestamp, co2_level as co2, temperature
-        FROM readings
-        WHERE sensor_id = $1
-        AND timestamp >= $2
-        ORDER BY timestamp ASC
+        SELECT
+            r.id,
+            r.sensor_id,
+            r.timestamp,
+            r.co2_level as co2,
+            r.temperature
+        FROM readings r
+        INNER JOIN sensors s ON r.sensor_id = s.id
+        INNER JOIN users u ON s.user_id = u.id
+        WHERE r.sensor_id = $1
+        AND u.username = $2
+        AND r.timestamp >= $3
+        ORDER BY r.timestamp ASC
         "#,
     )
     .bind(sensor_id)
+    .bind(username)
     .bind(timestamp)
     .fetch_all(pool)
     .await?;
@@ -112,7 +122,7 @@ pub async fn user_login(pool: &PgPool, user_form: &UserForm) -> Result<bool, sql
     // Read stored hash from DB
     let stored_hash = sqlx::query_as::<_, UserRecord>(
         r#"
-        SELECT password_hash
+        SELECT password
         FROM users
         WHERE username = $1
         "#,
@@ -122,4 +132,27 @@ pub async fn user_login(pool: &PgPool, user_form: &UserForm) -> Result<bool, sql
     .await?;
 
     Ok(stored_hash.map_or(false, |r| verify_hash(&user_form.password, &r.0)))
+}
+
+pub async fn owns_sensor(
+    pool: &PgPool,
+    username: String,
+    sensor_id: i32,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        SELECT EXISTS(
+            SELECT 1
+            FROM sensors s
+            INNER JOIN users u ON s.user_id = u.id
+            WHERE s.id = $1 AND u.username = $2
+        ) as "exists!"
+        "#,
+        sensor_id,
+        username
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(result.exists)
 }
