@@ -1,10 +1,12 @@
+use super::db::UserForm;
 use axum::{
     extract::Request,
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
-use jsonwebtoken::{DecodingKey, Validation, decode};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -12,6 +14,27 @@ pub struct Claims {
     pub sub: String,
     pub exp: i64,
     pub role: String,
+}
+
+pub fn create_jwt(user_form: &UserForm) -> String {
+    let expiration = Utc::now() + Duration::hours(1);
+    // Create claims object
+    let claims = Claims {
+        sub: user_form.username.clone(),
+        exp: expiration.timestamp(),
+        role: "user".to_string(),
+    };
+    // Load secret key from environment variable
+    let secret_key = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    // Generate JWT token
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret_key.as_ref()),
+    )
+    .expect("JWT encoding failed");
+
+    token
 }
 
 pub async fn verify_jwt(
