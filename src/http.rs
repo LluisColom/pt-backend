@@ -92,6 +92,14 @@ impl<T: Serialize> HttpResponse<T> {
         }
     }
 
+    pub fn conflicts(msg: impl AsRef<str>) -> Self {
+        HttpResponse {
+            status: 409,
+            error_msg: Some(msg.as_ref().to_string()),
+            body: None,
+        }
+    }
+
     pub fn internal_error() -> Self {
         HttpResponse {
             status: 500,
