@@ -36,4 +36,5 @@ INSERT INTO users (username, password, role)
 VALUES ('lluis', '$argon2id$v=19$m=19456,t=2,p=1$oz7KqblJDGMiSiaMPo9QyQ$QnuRj/P2YNuCUPdi2LrxBk/Kf85UwZj5qXxr6+zoJK8', 'user');
 
 -- Insert test sensor
-INSERT INTO sensors (sensor_name, sensor_location, user_id) VALUES ('Petroquimica Repsol', 'Tarragona', '1');
+INSERT INTO sensors (name, location, user_id) VALUES ('Fumera 1', 'Petroquimica Repsol TGN', '1');
+INSERT INTO sensors (name, location, user_id) VALUES ('Aircraft cabin', 'LH1811', '1');
