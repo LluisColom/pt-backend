@@ -8,8 +8,15 @@ pub async fn health_check(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query("SELECT 1").fetch_one(pool).await.map(|_| ())
 }
 
-/// Model used to represent a sensor reading request
-/// Used for validation and insertion
+/// Model used to represent a sensor record
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct Sensor {
+    id: i32,
+    name: String,
+    location: String,
+}
+
+/// Model used to represent a sensor reading
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SensorReading {
     sensor_id: i32,
@@ -18,8 +25,7 @@ pub struct SensorReading {
     temperature: f32,
 }
 
-/// Model used to represent a sensor reading record
-/// Used for fetching and returning data
+/// Model used to represent a sensor in the database
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct SensorReadingRecord {
     id: i32,
@@ -62,6 +68,29 @@ pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(),
 
     println!("Inserted reading: {:?}", payload);
     Ok(())
+}
+
+pub async fn fetch_sensors(
+    pool: &PgPool,
+    username: String,
+) -> Result<Vec<Sensor>, sqlx::Error> {
+    // Read from DB
+    let sensors = sqlx::query_as::<_, Sensor>(
+        r#"
+        SELECT
+            s.id,
+            s.name,
+            s.location
+        FROM sensors s
+        INNER JOIN users u ON s.user_id = u.id
+        WHERE u.username = $1
+        ORDER BY s.name ASC
+        "#,
+    )
+    .bind(username)
+    .fetch_all(pool)
+    .await?;
+    Ok(sensors)
 }
 
 pub async fn fetch_readings(

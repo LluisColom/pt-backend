@@ -12,6 +12,7 @@ use sqlx::PgPool;
 pub fn protected_routes() -> Router<PgPool> {
     Router::new()
         .route("/sensors/{sensor_id}/readings", get(fetch_reading))
+        .route("/sensors", get(fetch_sensors))
         .layer(middleware::from_fn(auth::verify_jwt))
 }
 
@@ -66,6 +67,19 @@ pub async fn fetch_reading(
         Ok(readings) => Json(HttpResponse::<_>::success_data(readings)).into_response(),
         Err(e) => {
             println!("Error fetching readings: {}", e);
+            Json(HttpResponse::<()>::internal_error()).into_response()
+        }
+    }
+}
+
+pub async fn fetch_sensors(
+    State(pool): State<PgPool>,
+    Extension(claims): Extension<Claims>,
+) -> impl IntoResponse {
+    match db::fetch_sensors(&pool, claims.sub).await {
+        Ok(sensors) => Json(HttpResponse::<_>::success_data(sensors)).into_response(),
+        Err(e) => {
+            println!("Error fetching sensors: {}", e);
             Json(HttpResponse::<()>::internal_error()).into_response()
         }
     }
