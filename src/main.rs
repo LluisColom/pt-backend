@@ -12,7 +12,7 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     // Load environment variables
     dotenv::dotenv().ok();
     let db = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -21,8 +21,9 @@ async fn main() {
     // Initialize Solana client
     let rpc_url = std::env::var("SOLANA_RPC").expect("RPC url must be set");
     let keypair = std::env::var("SOLANA_KEYPAIR").expect("Solana keypair must be set");
-    let client = SolanaClient::new(&rpc_url, &keypair).expect("Solana client init failed");
-    client.test_connection().await;
+    let client = SolanaClient::new(&rpc_url, &keypair)?;
+    client.test_connection().await?;
+    anyhow::ensure!(client.enough_balance()?, "Insufficient balance");
 
     // Connect to database
     let pool = PgPoolOptions::new()
@@ -56,4 +57,6 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .expect("Failed to start server");
+
+    Ok(())
 }
