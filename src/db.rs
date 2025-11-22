@@ -70,10 +70,7 @@ pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(),
     Ok(())
 }
 
-pub async fn fetch_sensors(
-    pool: &PgPool,
-    username: String,
-) -> Result<Vec<Sensor>, sqlx::Error> {
+pub async fn fetch_sensors(pool: &PgPool, username: String) -> Result<Vec<Sensor>, sqlx::Error> {
     // Read from DB
     let sensors = sqlx::query_as::<_, Sensor>(
         r#"

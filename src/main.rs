@@ -3,9 +3,11 @@ mod auth;
 mod crypto;
 mod db;
 mod http;
+mod solana;
 
 use axum::routing::post;
 use axum::{Router, routing::get};
+use solana::SolanaClient;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -15,6 +17,12 @@ async fn main() {
     dotenv::dotenv().ok();
     let db = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let _ = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+
+    // Initialize Solana client
+    let rpc_url = std::env::var("SOLANA_RPC").expect("RPC url must be set");
+    let keypair = std::env::var("SOLANA_KEYPAIR").expect("Solana keypair must be set");
+    let client = SolanaClient::new(&rpc_url, &keypair).expect("Solana client init failed");
+    client.test_connection().await;
 
     // Connect to database
     let pool = PgPoolOptions::new()
