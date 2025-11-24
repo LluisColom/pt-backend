@@ -41,7 +41,7 @@ impl SolanaClient {
         Ok(balance > 1_000_000) // 0.001 SOL minimum
     }
 
-    pub async fn submit(&self, sensor_reading: SensorReading) -> anyhow::Result<String> {
+    pub async fn submit(&self, sensor_reading: &SensorReading) -> anyhow::Result<String> {
         // Create memo with hash
         let hash = reading_hash(sensor_reading);
         let memo_data = format!("pollution:v1:{}", hash);
@@ -78,7 +78,7 @@ impl SolanaClient {
 
     pub async fn verify(&self, reading: SensorReading, signature: String) -> anyhow::Result<bool> {
         // Calculate expected memo
-        let hash = reading_hash(reading);
+        let hash = reading_hash(&reading);
         let expected_memo = format!("pollution:v1:{}", hash);
 
         // Read transaction from blockchain

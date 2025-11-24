@@ -33,6 +33,7 @@ pub struct SensorReadingRecord {
     timestamp: DateTime<Utc>, // ISO 8601 format
     co2: f32,
     temperature: f32,
+    tx_signature: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,16 +53,21 @@ pub fn validate_reading(payload: &SensorReading) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub async fn insert_reading(pool: &PgPool, payload: &SensorReading) -> Result<(), sqlx::Error> {
+pub async fn insert_reading(
+    pool: &PgPool,
+    payload: &SensorReading,
+    tx_signature: String,
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        INSERT INTO readings (sensor_id, timestamp, co2_level, temperature)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO readings (sensor_id, timestamp, co2_level, temperature, tx_signature)
+        VALUES ($1, $2, $3, $4, $5)
         "#,
         payload.sensor_id,
         payload.timestamp,
         payload.co2,
-        payload.temperature
+        payload.temperature,
+        tx_signature
     )
     .execute(pool)
     .await?;
@@ -106,7 +112,8 @@ pub async fn fetch_readings(
             r.sensor_id,
             r.timestamp,
             r.co2_level as co2,
-            r.temperature
+            r.temperature,
+            r.tx_signature
         FROM readings r
         INNER JOIN sensors s ON r.sensor_id = s.id
         INNER JOIN users u ON s.user_id = u.id

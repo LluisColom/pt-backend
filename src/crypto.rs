@@ -25,7 +25,7 @@ pub fn verify_hash(password: &str, stored_hash: &str) -> bool {
         .is_ok()
 }
 
-pub fn reading_hash(reading: SensorReading) -> String {
+pub fn reading_hash(reading: &SensorReading) -> String {
     let data = format!(
         "sensor:{}|ts:{}|co2:{:.2}|temp:{:.2}",
         reading.sensor_id,

@@ -67,19 +67,19 @@ pub async fn ingest_reading(
         }
     }
 
-    // Insert reading into DB
-    if let Err(e) = db::insert_reading(&state.pool, &payload).await {
-        println!("Error inserting reading: {}", e);
-        return Json(HttpResponse::<()>::internal_error()).into_response();
-    }
-
     // Submit proof to Solana blockchain
-    match state.client.submit(payload).await {
-        Ok(signature) => println!("Transaction submitted: {}", signature),
+    let signature = match state.client.submit(&payload).await {
+        Ok(signature) => signature,
         Err(e) => {
             println!("Error submitting reading to Solana: {}", e);
             return Json(HttpResponse::<()>::internal_error()).into_response();
         }
+    };
+
+    // Insert reading into DB
+    if let Err(e) = db::insert_reading(&state.pool, &payload, signature).await {
+        println!("Error inserting reading: {}", e);
+        return Json(HttpResponse::<()>::internal_error()).into_response();
     }
 
     Json(HttpResponse::<()>::success()).into_response()
