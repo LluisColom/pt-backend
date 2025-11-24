@@ -74,8 +74,12 @@ pub async fn ingest_reading(
     }
 
     // Submit proof to Solana blockchain
-    if let Err(e) = state.client.submit(payload).await {
-        println!("Error submitting reading to Solana: {}", e);
+    match state.client.submit(payload).await {
+        Ok(signature) => println!("Transaction submitted: {}", signature),
+        Err(e) => {
+            println!("Error submitting reading to Solana: {}", e);
+            return Json(HttpResponse::<()>::internal_error()).into_response();
+        }
     }
 
     Json(HttpResponse::<()>::success()).into_response()
