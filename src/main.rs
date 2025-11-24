@@ -32,6 +32,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to database");
 
+    let app_state = api::AppState::new(pool, client);
+
     // Allow requests from any origin (development-purposes only)
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -47,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
         // Merge protected routes as a separate router
         .merge(api::protected_routes())
         .layer(cors)
-        .with_state(pool);
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await

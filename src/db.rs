@@ -52,7 +52,7 @@ pub fn validate_reading(payload: &SensorReading) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(), sqlx::Error> {
+pub async fn insert_reading(pool: &PgPool, payload: &SensorReading) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         INSERT INTO readings (sensor_id, timestamp, co2_level, temperature)
