@@ -21,11 +21,15 @@ CREATE TABLE sensors (
 
 CREATE TABLE readings (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    sensor_id INTEGER REFERENCES sensors(id),
+    sensor_id INTEGER NOT NULL REFERENCES sensors(id),
     timestamp TIMESTAMPTZ NOT NULL,
     co2_level REAL NOT NULL,
-    temperature REAL NOT NULL
+    temperature REAL NOT NULL,
+    tx_signature TEXT NOT NULL
 );
+
+-- Revoke UPDATE entirely - readings are now truly immutable
+REVOKE UPDATE ON readings FROM PUBLIC;
 
 -- Indexes to enhance performance
 CREATE INDEX idx_sensor_readings_timestamp ON readings(sensor_id, timestamp);
