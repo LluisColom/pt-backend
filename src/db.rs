@@ -19,10 +19,10 @@ pub struct Sensor {
 /// Model used to represent a sensor reading
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SensorReading {
-    sensor_id: i32,
-    timestamp: DateTime<Utc>, // ISO 8601 format
-    co2: f32,
-    temperature: f32,
+    pub(crate) sensor_id: i32,
+    pub(crate) timestamp: DateTime<Utc>, // ISO 8601 format
+    pub(crate) co2: f32,
+    pub(crate) temperature: f32,
 }
 
 /// Model used to represent a sensor in the database

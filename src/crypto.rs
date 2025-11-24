@@ -1,3 +1,4 @@
+use crate::db::SensorReading;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{PasswordHash, PasswordHasher, PasswordVerifier};
@@ -22,4 +23,16 @@ pub fn verify_hash(password: &str, stored_hash: &str) -> bool {
     argon2
         .verify_password(password.as_bytes(), &parsed_hash)
         .is_ok()
+}
+
+pub fn reading_hash(reading: SensorReading) -> String {
+    let data = format!(
+        "sensor:{}|ts:{}|co2:{:.2}|temp:{:.2}",
+        reading.sensor_id,
+        reading.timestamp.timestamp(),
+        reading.co2,
+        reading.temperature
+    );
+    let digest = blake3::hash(data.as_bytes());
+    digest.to_hex().to_string()
 }
