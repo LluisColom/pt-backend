@@ -33,7 +33,18 @@ pub struct SensorReadingRecord {
     timestamp: DateTime<Utc>, // ISO 8601 format
     co2: f32,
     temperature: f32,
-    tx_signature: String,
+    pub(crate) tx_signature: String,
+}
+
+impl From<SensorReadingRecord> for SensorReading {
+    fn from(value: SensorReadingRecord) -> Self {
+        Self {
+            sensor_id: value.sensor_id,
+            co2: value.co2,
+            timestamp: value.timestamp,
+            temperature: value.temperature,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,6 +141,35 @@ pub async fn fetch_readings(
     .await?;
 
     Ok(readings)
+}
+
+pub async fn fetch_reading(
+    pool: &PgPool,
+    reading_id: i32,
+    username: String,
+) -> Result<SensorReadingRecord, sqlx::Error> {
+    let reading = sqlx::query_as::<_, SensorReadingRecord>(
+        r#"
+        SELECT
+            r.id,
+            r.sensor_id,
+            r.timestamp,
+            r.co2_level as co2,
+            r.temperature,
+            r.tx_signature
+        FROM readings r
+        INNER JOIN sensors s ON r.sensor_id = s.id
+        INNER JOIN users u ON s.user_id = u.id
+        WHERE r.id = $1
+        AND u.username = $2
+        "#,
+    )
+    .bind(reading_id)
+    .bind(username)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(reading)
 }
 
 pub async fn register_user(pool: &PgPool, user_form: UserForm) -> Result<(), sqlx::Error> {

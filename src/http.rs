@@ -92,6 +92,14 @@ impl<T: Serialize> HttpResponse<T> {
         }
     }
 
+    pub fn not_found() -> Self {
+        HttpResponse {
+            status: 404,
+            error_msg: Some("Resource is not found".to_string()),
+            body: None,
+        }
+    }
+
     pub fn conflicts(msg: impl AsRef<str>) -> Self {
         HttpResponse {
             status: 409,

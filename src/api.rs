@@ -7,7 +7,8 @@ use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Extension, Json, Router, middleware};
-use sqlx::PgPool;
+use serde_json::json;
+use sqlx::{Error, PgPool};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -30,6 +31,7 @@ pub fn protected_routes() -> Router<AppState> {
     Router::new()
         .route("/sensors/{sensor_id}/readings", get(fetch_reading))
         .route("/sensors", get(fetch_sensors))
+        .route("/verify/{reading_id}", get(verify_reading))
         .layer(middleware::from_fn(auth::verify_jwt))
 }
 
@@ -100,7 +102,7 @@ pub async fn fetch_reading(
             }
         }
         Err(e) => {
-            println!("Database error checking ownership: {}", e);
+            println!("Database error checking sensor ownership: {}", e);
             return Json(HttpResponse::<()>::internal_error()).into_response();
         }
     }
@@ -109,6 +111,38 @@ pub async fn fetch_reading(
         Ok(readings) => Json(HttpResponse::<_>::success_data(readings)).into_response(),
         Err(e) => {
             println!("Error fetching readings: {}", e);
+            Json(HttpResponse::<()>::internal_error()).into_response()
+        }
+    }
+}
+
+pub async fn verify_reading(
+    reading_id: Path<i32>,
+    State(state): State<AppState>,
+    Extension(claims): Extension<Claims>,
+) -> impl IntoResponse {
+    match db::fetch_reading(&state.pool, *reading_id, claims.sub).await {
+        Ok(reading) => {
+            let signature = reading.tx_signature.clone();
+            let reading = SensorReading::from(reading);
+            // Verify proof on Solana blockchain
+            match state.client.verify(reading, signature).await {
+                Ok(result) => {
+                    let body = json!({ "verification": result });
+                    Json(HttpResponse::success_data(body)).into_response()
+                }
+                Err(e) => {
+                    println!("Error verifying reading: {}", e);
+                    Json(HttpResponse::<()>::internal_error()).into_response()
+                }
+            }
+        }
+        Err(Error::RowNotFound) => {
+            // Failed sensor ownership access control also falls in this category
+            Json(HttpResponse::<()>::not_found()).into_response()
+        }
+        Err(e) => {
+            println!("Database error in reading verification: {}", e);
             Json(HttpResponse::<()>::internal_error()).into_response()
         }
     }
