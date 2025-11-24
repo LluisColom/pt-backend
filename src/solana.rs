@@ -1,9 +1,12 @@
 use crate::crypto::reading_hash;
 use crate::db::SensorReading;
 use solana_client::rpc_client::RpcClient;
+use solana_client::rpc_config::UiTransactionEncoding;
+use solana_client::rpc_response::OptionSerializer;
 use solana_sdk::message::{AccountMeta, Instruction};
-use solana_sdk::signature::{Keypair, Signer};
+use solana_sdk::signature::{Keypair, Signature, Signer};
 use solana_sdk::transaction::Transaction;
+use std::str::FromStr;
 
 pub struct SolanaClient {
     pub rpc_client: RpcClient,
@@ -71,5 +74,31 @@ impl SolanaClient {
         //self.rpc_client.send_and_confirm_transaction(&tx)?;
 
         Ok(signature)
+    }
+
+    pub async fn verify(&self, reading: SensorReading, signature: String) -> anyhow::Result<bool> {
+        // Calculate expected memo
+        let hash = reading_hash(reading);
+        let expected_memo = format!("pollution:v1:{}", hash);
+
+        // Read transaction from blockchain
+        let signature = Signature::from_str(&signature)?;
+        let tx = self
+            .rpc_client
+            .get_transaction(&signature, UiTransactionEncoding::Json)?;
+
+        // Extract memo from transaction
+        if let Some(meta) = tx.transaction.meta {
+            if let OptionSerializer::Some(log_messages) = meta.log_messages {
+                for log in log_messages {
+                    // Memo program logs look like: "Program log: Memo (len 32): \"pollution:v1:...\""
+                    if log.contains(&expected_memo) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 }
