@@ -70,6 +70,20 @@ pub async fn insert_reading(pool: &PgPool, payload: SensorReading) -> Result<(),
     Ok(())
 }
 
+pub async fn sensor_exists(pool: &PgPool, sensor_id: i32) -> Result<bool, sqlx::Error> {
+    let exists = sqlx::query!(
+        r#"
+        SELECT EXISTS(SELECT 1 FROM sensors WHERE id = $1) as "exists!"
+        "#,
+        sensor_id
+    )
+    .fetch_one(pool)
+    .await?
+    .exists;
+
+    Ok(exists)
+}
+
 pub async fn fetch_sensors(pool: &PgPool, username: String) -> Result<Vec<Sensor>, sqlx::Error> {
     // Read from DB
     let sensors = sqlx::query_as::<_, Sensor>(

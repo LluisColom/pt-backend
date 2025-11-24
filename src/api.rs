@@ -35,6 +35,19 @@ pub async fn ingest_reading(
         return Json(HttpResponse::<()>::bad_request(reason)).into_response();
     }
 
+    match db::sensor_exists(&pool, payload.sensor_id).await {
+        Ok(exists) => {
+            if exists == false {
+                let reason = "Sensor is not registered";
+                return Json(HttpResponse::<()>::bad_request(reason)).into_response();
+            }
+        }
+        Err(e) => {
+            println!("Error checking sensor existence: {}", e);
+            return Json(HttpResponse::<()>::internal_error()).into_response();
+        }
+    }
+
     if let Err(e) = db::insert_reading(&pool, payload).await {
         println!("Error inserting reading: {}", e);
         return Json(HttpResponse::<()>::internal_error()).into_response();
