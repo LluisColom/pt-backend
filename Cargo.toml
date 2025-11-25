@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.100"
 axum = "0.8.6"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 argon2 = "0.5.3"
 blake3 = "1.8.0"
 tokio = { version = "1.48.0", features = ["rt", "rt-multi-thread", "macros"] }
@@ -18,3 +19,4 @@ tower-http = { version = "0.6.6", features = ["cors"] }
 jsonwebtoken = { version = "10.1.0", features = ["rust_crypto"] }
 solana-client = "3.1.2"
 solana-sdk = "3.0.0"
+rustls = { version = "0.23", features = ["ring"] }

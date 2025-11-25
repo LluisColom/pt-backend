@@ -7,12 +7,17 @@ mod solana;
 
 use axum::routing::post;
 use axum::{Router, routing::get};
+use axum_server::tls_rustls::RustlsConfig;
+use rustls::crypto::{CryptoProvider, ring};
 use solana::SolanaClient;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Install default crypto provider
+    let _ = CryptoProvider::install_default(ring::default_provider());
+
     // Load environment variables
     dotenv::dotenv().ok();
     let db = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -51,14 +56,14 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors)
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .expect("Failed to bind to address");
+    // Load TLS config
+    let config = RustlsConfig::from_pem_file("localhost+2.pem", "localhost+2-key.pem").await?;
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 3000));
 
     // Run server
-    axum::serve(listener, app)
-        .await
-        .expect("Failed to start server");
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
 }
