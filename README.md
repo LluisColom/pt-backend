@@ -67,7 +67,20 @@ brew services start postgresql@16
 psql -f init_db.sql postgres
 ```
 
-### 4. Configure Environment Variables
+### 4. Generate Solana Keypair using Solana CLI
+
+```bash
+# Install Solana CLI
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+
+# Generate keypair
+solana-keygen new --outfile ./solana-keypair.json --no-bip39-passphrase
+
+# Get devnet SOL (airdrop)
+solana airdrop 2 $(solana-keygen pubkey ./solana-keypair.json) --url devnet
+```
+
+### 5. Configure Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -80,20 +93,7 @@ JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long-random
 
 # Solana Configuration
 SOLANA_RPC=https://api.devnet.solana.com
-SOLANA_KEYPAIR=./solana-keypair.json
-```
-
-### 5. Generate Solana Keypair using Solana CLI
-
-```bash
-# Install Solana CLI
-sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
-
-# Generate keypair
-solana-keygen new --outfile ./solana-keypair.json --no-bip39-passphrase
-
-# Get devnet SOL (airdrop)
-solana airdrop 2 $(solana-keygen pubkey ./solana-keypair.json) --url devnet
+SOLANA_KEYPAIR=your-generated-solana-keypair (raw content)
 ```
 
 ## Usage
